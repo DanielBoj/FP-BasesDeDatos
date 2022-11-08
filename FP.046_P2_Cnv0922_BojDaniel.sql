@@ -85,3 +85,51 @@ SELECT sc.id_socio AS 'ID Socio', sc.nombre AS 'Nombre', sc.apellido1 AS 'Apelli
 COMMIT;
 
 -- Subconsultas
+
+--
+-- Ejercicio 4
+--
+
+START TRANSACTION;
+
+SELECT id_socio AS 'ID Socio', nombre AS 'Nombre', CONCAT(apellido1, ' ', apellido2) AS Apellidos, fecha_alta AS 'FEcha de Alta'
+	FROM socio
+    WHERE fecha_alta = (
+		SELECT	MIN(fecha_alta)
+			FROM socio);
+            
+COMMIT;
+
+--
+-- Ejercicio 5
+--
+
+START TRANSACTION;
+
+SELECT *
+	FROM empresa
+	WHERE fecha_inicio_convenio = (
+		SELECT MAX(fecha_inicio_convenio)
+        FROM empresa);
+
+COMMIT;
+
+--
+-- Ejercicio 6
+--
+
+START TRANSACTION;
+
+SELECT s.id_socio 'ID Socio', s.nombre AS 'Nombre', CONCAT(s.apellido1, ' ', s.apellido2) AS 'Apellidos', MIN((sg.peso / POWER((sg.estatura_cm / 100), 2))) AS 'Mejor IMC'
+	FROM socio s
+	JOIN seguimiento sg
+	ON (sg.id_socio = s.id_socio)
+	WHERE (peso / POWER((estatura_cm / 100), 2)) < (
+		SELECT MIN((sgm.peso / POWER((sgm.estatura_cm / 100), 2))) AS IMC
+			FROM seguimiento sgm
+            JOIN socio sco
+            ON (sco.id_socio = sgm.id_socio)
+			WHERE (sco.id_plan = 3))
+	GROUP BY s.id_socio;
+
+COMMIT;
