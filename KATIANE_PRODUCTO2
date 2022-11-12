@@ -1,0 +1,252 @@
+ombinaciones Externas:
+
+--
+-- Pregunta 1. 
+-- Mostrar aquellos socios corporativos que no se han inscrito en ninguna actividad. 
+-- El listado deberá mostrar los siguientes campos: idSocio, Nombre, Apellido1, Nombre del Plan.
+--
+
+SELECT s.id_socio, s.nombre, s.apellido1, p.plan FROM socio s 
+LEFT JOIN plan p
+ON p.id_plan = s.id_plan
+RIGHT JOIN corporativo c
+on s.id_socio = c.id_socio
+LEFT JOIN inscripcion i
+on s.id_socio = i.id_socio 
+WHERE i.id_socio IS NULL;
+
+/* 
+ * Utilizamos tabla socio como tabla principal y mostramos los campos que necesitamos
+ * hacemos un LEFT JOIN con plan porque necesitamos el nombre del plan de todos los socios.
+ * Hacemos un RIGHT JOIN con coorporativos para quedarnos únicamente con los socios corporativos que son los que nos interesan
+ * finalmente hacemos un LEFT JOIN con la tabla inscripción y hacemos un WHERE id_socio IS NULL para quedarnos únicamente con los socios no inscritos a actividades.
+ */
+
+
+--
+-- Pregunta 2.
+-- Mostrar un listado de socios a los cuales no se les haya registrado cambios desde que se registraron en el gimnasio 
+-- (no aparecen en la tabla histórico) ordenados por idPlan y Fecha Alta.
+-- El listado deberá mostrar los siguientes campos: idSocio, Nombre, Apellido1, Nombre del Plan.
+--
+
+SELECT s.id_socio, s.nombre, s.apellido1, p.plan FROM socio s
+LEFT JOIN plan p
+ON s.id_plan = p.id_plan
+LEFT JOIN historico h
+ON s.id_socio = h.id_socio
+WHERE h.id_socio IS NULL
+ORDER BY s.id_plan, s.fecha_alta
+
+/* 
+ * Utilizamos tabla socio como tabla principal y mostramos los campos que necesitamos
+ * hacemos un LEFT JOIN con plan porque necesitamos el nombre del plan de todos los socios.
+ * finalmente hacemos un LEFT JOIN con la tabla historico y hacemos un WHERE id_socio IS NULL para quedarnos únicamente con los socios sin registros en la tabla historico.
+ * Ordenamos por idPlan y fecha_alta como se nos indica en el enunciado.
+ */
+
+
+--
+-- Pregunta 3.
+-- Mostrar un listado de socios no corporativos a los cuales no se les haya realizado ningún seguimiento, 
+-- ordenado por tipo de socio (principal y beneficiarios). El listado deberá mostrar los siguientes campos: 
+-- idSocio, Nombre, Apellido1, Días de Alta en el Gimnasio.
+--
+
+SELECT s.id_socio, s.nombre, s.apellido1, 
+DATEDIFF( (SELECT IF( activo = 1, curdate(), h.fecha_cambio) AS dias FROM socio ss WHERE ss.id_socio = s.id_socio), s.fecha_alta) AS "Dias de Alta en el Gimnasio" 
+FROM socio s 
+LEFT JOIN principal p
+on s.id_socio = p.idsocio 
+LEFT JOIN beneficiario b
+on s.id_socio = b.id_socio 
+LEFT JOIN corporativo c
+on s.id_socio = c.id_socio 
+LEFT JOIN historico h
+ON s.id_socio = h.id_socio
+LEFT JOIN seguimiento se
+on s.id_socio = se.id_socio 
+WHERE se.id_socio IS NULL AND c.id_socio IS NULL
+ORDER BY b.id_Socio, p.idsocio;
+
+/* 
+ * Utilizamos tabla socio como tabla principal y mostramos los campos que necesitamos
+ * hacemos un LEFT JOIN con principal, corporativo y beneficiario, para controlar el tipo de socios.
+ * hacemos LEFT JOIN con historico porque necesitamos fecha_cambio, en el caso de que el socio esté inactivo, de esta tabla para calcular los dias de alta.
+ * En caso de activo devolvemos el dia de hoy curdate()
+ * finalmente hacemos un LEFT JOIN con la tabla seguimiento y hacemos un WHERE id_socio IS NULL para quedarnos únicamente con los socios sin registros en la tabla seguimiento y que no sean corporativos.
+ * Ordenamos por id_Socio.
+ */
+
+
+
+
+
+SUBCONSULTAS:
+
+--
+-- Pregunta 4.
+-- Mostrar el idSocio, nombre, apellido1, apellido2 y la fecha de alta del socio más antiguo del gimnasio.
+--
+
+SELECT s.id_socio, s.nombre, s.apellido1, s.apellido2, s.fecha_alta FROM socio s 
+WHERE s.fecha_alta = ( SELECT MIN(ss.fecha_alta) FROM socio ss );
+
+/* 
+ * Utilizamos tabla socio como tabla principal y mostramos los campos que necesitamos
+ * hacemos un WHERE para solo traernos el socio con la menos fecha de alta.
+ */
+
+
+--
+-- Pregunta 5.
+-- Mostrar todos los datos de la Empresa que firmó el último convenio con el gimnasio.
+--
+
+SELECT * FROM empresa e 
+WHERE e.fecha_inicio_convenio = ( SELECT MAX(es.fecha_inicio_convenio) FROM empresa es );
+
+/* 
+ * Utilizamos tabla empresa como tabla principal y mostramos todos sus campos
+ * hacemos un WHERE para solo traernos la empresa con el la fecha de inicio de convenio más alta.
+ */
+
+
+--
+-- Pregunta 6.
+-- Mostrar saber el id, nombre y apellidos de aquellos socios con IMC más bajo que el mejor IMC del socio que esté inscrito en el Plan id=3.
+-- Mostrar en la consulta el mejor IMC.
+--
+
+SELECT DISTINCT(s.id_socio), s.nombre, s.apellido1, s.apellido2, s.fecha_alta, se.porcentaje_grasa_corporal AS IMC, s.id_plan FROM socio s 
+INNER JOIN seguimiento se
+ON s.id_socio = se.id_socio
+WHERE se.porcentaje_grasa_corporal <= (
+SELECT MIN(seg.porcentaje_grasa_corporal) FROM seguimiento seg
+LEFT JOIN socio ss
+ON ss.id_socio = seg.id_socio WHERE ss.id_plan = 3);
+
+/* 
+ * Utilizamos tabla socio como tabla principal y mostramos todos sus campos
+ * hacemos un INNER JOIN con seguimiento de donde obtendremos los IMC
+ * posteriormente hacemos un WHERE comparar el porcentaje de grasa de los socios con una subconsulta para solo traernos el mejor indice del idplan 3.
+ */
+
+
+
+Consultas de UNION:
+7-
+SELECT e.nif, e.empresa, e.telefono, s.id_plan, plan, COUNT(s.id_socio) AS "Numero Afiliados", p.cuota_mensual, 
+( COUNT(s.id_socio) * p.cuota_mensual ) AS "Importe Total" FROM empresa e
+LEFT JOIN corporativo sc
+ON sc.nif = e.nif
+LEFT JOIN socio s
+ON s.id_socio = sc.id_socio
+LEFT JOIN plan p
+ON s.id_plan = p.id_plan
+GROUP BY e.nif, id_plan;	
+
+8-
+SELECT s.documento_identidad, concat_ws(" ", s.nombre, s.apellido1, s.apellido2) AS "Nombre", s.telefono_contacto, 
+s.id_plan, p.plan, COUNT(b.id_socio_principal_referencia) + 1 AS "Numero Afiliados", p.cuota_mensual,
+( (COUNT(b.id_socio_principal_referencia) + 1)  * p.cuota_mensual ) AS "Importe Total" FROM socio s
+LEFT JOIN plan p
+ON s.id_plan = p.id_plan
+RIGHT JOIN principal pr
+ON pr.idsocio = s.id_socio
+LEFT JOIN beneficiario b
+ON s.id_socio = b.id_socio_principal_referencia
+GROUP BY s.id_socio;	
+
+9-
+SELECT e.nif, e.empresa, e.telefono, s.id_plan, plan, COUNT(s.id_socio) AS "Numero Afiliados", p.cuota_mensual, 
+( COUNT(s.id_socio) * p.cuota_mensual ) AS "Importe Total" FROM empresa e
+LEFT JOIN corporativo sc
+ON sc.nif = e.nif
+LEFT JOIN socio s
+ON s.id_socio = sc.id_socio
+LEFT JOIN plan p
+ON s.id_plan = p.id_plan
+GROUP BY e.nif, id_plan	
+UNION
+SELECT s.documento_identidad, concat_ws(" ", s.nombre, s.apellido1, s.apellido2) AS "Nombre", s.telefono_contacto, 
+s.id_plan, p.plan, COUNT(b.id_socio_principal_referencia) + 1 AS "Numero Afiliados", p.cuota_mensual,
+( (COUNT(b.id_socio_principal_referencia) + 1)  * p.cuota_mensual ) AS "Importe Total" FROM socio s
+LEFT JOIN plan p
+ON s.id_plan = p.id_plan
+RIGHT JOIN principal pr
+ON pr.idsocio = s.id_socio
+LEFT JOIN beneficiario b
+ON s.id_socio = b.id_socio_principal_referencia
+GROUP BY s.id_socio;	
+// No se tiene en cuenta los descuentos de los beneficiarios porque tal y como está montado lo parece que sea posible sacarlo
+
+10-
+SELECT a.id_actividad, a.actividad, "Dirigida" AS Tipo, 0 AS Matrícula, 0 AS "Precio mensual",
+0 AS "Porcentaje de descuento" 
+FROM actividad a
+RIGHT JOIN dirigida d	
+ON a.id_actividad = d.id_actividad
+UNION
+SELECT a.id_actividad, a.actividad, "Extra" AS Tipo, e.matricula, e.mensualidad,
+e.descuento_abonados
+FROM actividad a
+RIGHT JOIN extra e	
+ON a.id_actividad = e.id_actividad
+
+VISTAS 
+11- 
+CREATE VIEW Base_Facturacion  
+AS SELECT e.nif, e.empresa, e.telefono, s.id_plan, plan, COUNT(s.id_socio) AS "Numero Afiliados", p.cuota_mensual, 
+( COUNT(s.id_socio) * p.cuota_mensual ) AS "Importe Total" FROM empresa e
+LEFT JOIN corporativo sc
+ON sc.nif = e.nif
+LEFT JOIN socio s
+ON s.id_socio = sc.id_socio
+LEFT JOIN plan p
+ON s.id_plan = p.id_plan
+GROUP BY e.nif, id_plan	
+UNION
+SELECT s.documento_identidad, concat_ws(" ", s.nombre, s.apellido1, s.apellido2) AS "Nombre", s.telefono_contacto, 
+s.id_plan, p.plan, COUNT(b.id_socio_principal_referencia) + 1 AS "Numero Afiliados", p.cuota_mensual,
+( (COUNT(b.id_socio_principal_referencia) + 1)  * p.cuota_mensual ) AS "Importe Total" FROM socio s
+LEFT JOIN plan p
+ON s.id_plan = p.id_plan
+RIGHT JOIN principal pr
+ON pr.idsocio = s.id_socio
+LEFT JOIN beneficiario b
+ON s.id_socio = b.id_socio_principal_referencia
+GROUP BY s.id_socio;
+
+12-
+CREATE VIEW Actividades_Gym   
+AS SELECT a.id_actividad, a.actividad, "Dirigida" AS Tipo, 0 AS Matrícula, 0 AS "Precio mensual",
+0 AS "Porcentaje de descuento" 
+FROM actividad a
+RIGHT JOIN dirigida d	
+ON a.id_actividad = d.id_actividad
+UNION
+SELECT a.id_actividad, a.actividad, "Extra" AS Tipo, e.matricula, e.mensualidad,
+e.descuento_abonados
+FROM actividad a
+RIGHT JOIN extra e	
+ON a.id_actividad = e.id_actividad
+
+13-
+CREATE VIEW Socios_Planes 
+AS SELECT p.id_plan, p.plan, count(s.id_socio) AS Total_socio
+FROM plan p
+LEFT JOIN socio s
+ON p.id_plan = s.id_plan
+GROUP BY p.id_plan
+
+14-
+CREATE VIEW Socios_Totales  
+AS SELECT count(s.id_socio) AS Socios_totales
+FROM socio s
+
+15-
+SELECT sp.id_plan, sp.plan, 
+( (sp.Total_socio * 100) / (SELECT * FROM Socios_Totales st) ) AS "Porcentaje de socios"
+FROM Socios_Planes sp
+
